@@ -1,98 +1,149 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useState, useCallback } from 'react';
+import { Text, View, Dimensions, TextInput, Button } from 'react-native';
+import { db } from '@/db/client';
+import { habits, habitLogs, users } from '@/db/schema';
+import { seedIfEmpty } from '@/db/seed';
+import HabitCard from '@/components/HabitCard';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { BarChart } from 'react-native-chart-kit';
+import { eq } from 'drizzle-orm';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+export default function IndexScreen() {
+  const [data, setData] = useState<any[]>([]);
+  const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [search, setSearch] = useState('');
 
-export default function HomeScreen() {
+  const [chartData, setChartData] = useState({
+    labels: [] as string[],
+    datasets: [{ data: [] as number[] }],
+  });
+
+  const router = useRouter();
+
+  useFocusEffect(
+    useCallback(() => {
+      init();
+    }, [])
+  );
+
+  const init = async () => {
+    await seedIfEmpty();
+    await loadHabits();
+    await loadChartData();
+  };
+
+  const loadHabits = async () => {
+    const rows = await db.select().from(habits);
+    setData(rows);
+    setFilteredData(rows);
+  };
+
+  const loadChartData = async () => {
+    const habitList = await db.select().from(habits);
+
+    const labels: string[] = [];
+    const values: number[] = [];
+
+    for (const habit of habitList) {
+      const logs = await db
+        .select()
+        .from(habitLogs)
+        .where(eq(habitLogs.habitId, habit.id));
+
+      const total = logs.reduce((sum, l) => sum + l.count, 0);
+
+      labels.push(habit.name);
+      values.push(total);
+    }
+
+    setChartData({
+      labels,
+      datasets: [{ data: values }],
+    });
+  };
+
+  // 🔍 SEARCH
+  const handleSearch = (text: string) => {
+    setSearch(text);
+
+    const filtered = data.filter((habit) =>
+      habit.name.toLowerCase().includes(text.toLowerCase())
+    );
+
+    setFilteredData(filtered);
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <View style={{ padding: 20 }}>
+      <Text style={{ fontSize: 22, marginBottom: 10 }}>Habits</Text>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      {/* 🔐 AUTH BUTTONS */}
+      <Button title="Logout" onPress={() => router.replace('/login')} />
+
+      <Button
+        title="Delete Account"
+        onPress={async () => {
+          await db.delete(users);
+          router.replace('/login');
+        }}
+      />
+
+      {/* 🔍 SEARCH */}
+      <TextInput
+        placeholder="Search habits..."
+        value={search}
+        onChangeText={handleSearch}
+        style={{
+          borderWidth: 1,
+          padding: 10,
+          borderRadius: 8,
+          marginBottom: 10,
+        }}
+      />
+
+      {/* 📊 CHART */}
+      {chartData.labels.length > 0 && (
+        <>
+          {/* @ts-ignore */}
+          <BarChart
+            data={chartData}
+            width={Dimensions.get('window').width - 40}
+            height={220}
+            fromZero
+            chartConfig={{
+              backgroundGradientFrom: '#ffffff',
+              backgroundGradientTo: '#ffffff',
+              decimalPlaces: 0,
+              color: (opacity = 1) => `rgba(15, 118, 110, ${opacity})`,
+              labelColor: () => '#000',
+            }}
+            style={{
+              marginBottom: 20,
+              borderRadius: 10,
+            }}
+          />
+        </>
+      )}
+
+      {/* ➕ Add Habit */}
+      <Text
+        style={{
+          backgroundColor: '#0F766E',
+          color: '#fff',
+          padding: 10,
+          borderRadius: 8,
+          textAlign: 'center',
+          marginBottom: 10,
+        }}
+        onPress={() => router.push('/add-habit')}
+      >
+        + Add Habit
+      </Text>
+
+      {/* 📋 LIST */}
+      {filteredData.map((habit) => (
+        <HabitCard key={habit.id} habit={habit} />
+      ))}
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
