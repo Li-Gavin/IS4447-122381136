@@ -8,6 +8,9 @@ import {
   ScrollView,
 } from 'react-native';
 
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+
 import { db } from '@/db/client';
 import { habits, habitLogs, users, categories } from '@/db/schema';
 import { seedIfEmpty } from '@/db/seed';
@@ -125,6 +128,29 @@ export default function IndexScreen() {
     setFilteredData(data);
   };
 
+  const exportToCSV = async () => {
+    const habitList = await db.select().from(habits);
+    const logs = await db.select().from(habitLogs);
+
+    let csv = 'Habit,Date,Count\n';
+
+    for (const habit of habitList) {
+      const habitLogsFiltered = logs.filter(
+        (l) => l.habitId === habit.id
+      );
+
+      for (const log of habitLogsFiltered) {
+        csv += `${habit.name},${log.date},${log.count}\n`;
+      }
+    }
+
+    const fileUri = FileSystem.documentDirectory + 'habits.csv';
+
+    await FileSystem.writeAsStringAsync(fileUri, csv);
+
+    await Sharing.shareAsync(fileUri);
+  };
+
   return (
     <ScrollView
       contentContainerStyle={{ padding: 20, backgroundColor: bgColor }}
@@ -153,6 +179,8 @@ export default function IndexScreen() {
           router.replace('/login');
         }}
       />
+
+      <Button title="Export CSV" onPress={exportToCSV} />
 
       <Text style={{ color: textColor }}>Search</Text>
       <TextInput
@@ -201,7 +229,7 @@ export default function IndexScreen() {
         <Picker.Item
           label="All Categories"
           value={null}
-          color={theme === 'dark' ? '#000' : '#000'}
+          color="#000"
         />
 
         {categoryList.map((cat) => (
