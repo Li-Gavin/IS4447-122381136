@@ -23,7 +23,6 @@ import { Picker } from '@react-native-picker/picker';
 import { useTheme } from '@/hooks/useTheme';
 import Constants from 'expo-constants';
 
-
 export default function IndexScreen() {
   const { theme, toggleTheme } = useTheme();
 
@@ -45,12 +44,16 @@ export default function IndexScreen() {
     datasets: [{ data: [] as number[] }],
   });
 
+  const [advice, setAdvice] = useState('');
+  const [loadingAdvice, setLoadingAdvice] = useState(false);
+  const [adviceError, setAdviceError] = useState('');
+
   const router = useRouter();
 
   useFocusEffect(
     useCallback(() => {
       init();
-    }, [view])
+    }, [])
   );
 
   const init = async () => {
@@ -58,6 +61,25 @@ export default function IndexScreen() {
     await loadHabits();
     await loadChartData();
     await loadCategories();
+    await loadAdvice();
+  };
+
+  const loadAdvice = async () => {
+    try {
+      setLoadingAdvice(true);
+      setAdviceError('');
+
+      const res = await fetch(
+        process.env.EXPO_PUBLIC_API_URL! + '?t=' + new Date().getTime()
+      );
+      const data = await res.json();
+
+      setAdvice(data.slip.advice);
+    } catch (err) {
+      setAdviceError('Failed to load tip');
+    } finally {
+      setLoadingAdvice(false);
+    }
   };
 
   const loadCategories = async () => {
@@ -184,6 +206,24 @@ export default function IndexScreen() {
       <Text style={{ fontSize: 22, marginBottom: 10, color: textColor }}>
         Habits
       </Text>
+
+      <View style={{ marginBottom: 15 }}>
+        {loadingAdvice ? (
+          <Text style={{ color: textColor }}>Loading tip...</Text>
+        ) : adviceError ? (
+          <Text style={{ color: 'red' }}>{adviceError}</Text>
+        ) : (
+          <>
+            <Text style={{ fontStyle: 'italic', color: textColor }}>
+              💡 {advice}
+            </Text>
+
+            <View style={{ marginTop: 8 }}>
+              <Button title="Refresh Tip" onPress={loadAdvice} />
+            </View>
+          </>
+        )}
+      </View>
 
       <Button
         title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}

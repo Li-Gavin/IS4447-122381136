@@ -82,15 +82,15 @@ export default function HabitDetail() {
   const calculateStreak = () => {
     if (logs.length === 0) return 0;
 
-    const sorted = [...logs].sort((a, b) =>
-      b.date.localeCompare(a.date)
-    );
+    const uniqueDates = Array.from(
+      new Set(logs.map((log) => log.date))
+    ).sort((a, b) => b.localeCompare(a));
 
     let streak = 0;
     let currentDate = new Date();
 
-    for (let i = 0; i < sorted.length; i++) {
-      const logDate = new Date(sorted[i].date);
+    for (let i = 0; i < uniqueDates.length; i++) {
+      const logDate = new Date(uniqueDates[i]);
 
       const diff =
         (currentDate.getTime() - logDate.getTime()) /
