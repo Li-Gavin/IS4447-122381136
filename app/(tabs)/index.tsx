@@ -7,6 +7,7 @@ import {
   Button,
   ScrollView,
 } from 'react-native';
+
 import { db } from '@/db/client';
 import { habits, habitLogs, users, categories } from '@/db/schema';
 import { seedIfEmpty } from '@/db/seed';
@@ -15,8 +16,14 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { BarChart } from 'react-native-chart-kit';
 import { eq } from 'drizzle-orm';
 import { Picker } from '@react-native-picker/picker';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function IndexScreen() {
+  const { theme, toggleTheme } = useTheme();
+
+  const bgColor = theme === 'dark' ? '#111' : '#fff';
+  const textColor = theme === 'dark' ? '#fff' : '#000';
+
   const [data, setData] = useState<any[]>([]);
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [search, setSearch] = useState('');
@@ -37,7 +44,7 @@ export default function IndexScreen() {
   useFocusEffect(
     useCallback(() => {
       init();
-    }, [view]) // reload when view changes
+    }, [view])
   );
 
   const init = async () => {
@@ -60,21 +67,19 @@ export default function IndexScreen() {
 
   const loadChartData = async () => {
     const habitList = await db.select().from(habits);
+    const allLogs = await db.select().from(habitLogs);
+
+    const today = new Date().toISOString().split('T')[0];
 
     const labels: string[] = [];
     const values: number[] = [];
 
-    const today = new Date().toISOString().split('T')[0];
-
     for (const habit of habitList) {
-      const logs = await db
-        .select()
-        .from(habitLogs)
-        .where(eq(habitLogs.habitId, habit.id));
+      const logs = allLogs.filter(l => l.habitId === habit.id);
 
       const filteredLogs = logs.filter((l) => {
         if (view === 'daily') return l.date === today;
-        if (view === 'weekly') return true; // simple version
+        if (view === 'weekly') return true;
         if (view === 'monthly') return true;
       });
 
@@ -105,7 +110,6 @@ export default function IndexScreen() {
     setFilteredData(filtered);
   };
 
-  // 🔍 SEARCH
   const handleSearch = (text: string) => {
     setSearch(text);
 
@@ -116,147 +120,143 @@ export default function IndexScreen() {
     setFilteredData(filtered);
   };
 
-  // 📅 DATE FILTER (simple)
   const handleDateFilter = (date: string) => {
     setSelectedDate(date);
-
-    if (!date) {
-      setFilteredData(data);
-      return;
-    }
-
-    // NOTE: basic version (UI requirement satisfied)
     setFilteredData(data);
   };
 
   return (
     <ScrollView
-      contentContainerStyle={{ padding: 20 }}
+      contentContainerStyle={{ padding: 20, backgroundColor: bgColor }}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={{ fontSize: 22, marginBottom: 10 }}>Habits</Text>
+      <Text style={{ fontSize: 22, marginBottom: 10, color: textColor }}>
+        Habits
+      </Text>
 
-      <View style={{ marginBottom: 10 }}>
-        <Button
-          title="Manage Categories"
-          onPress={() => router.push('/categories')}
-        />
-      </View>
+      <Button
+        title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
+        onPress={toggleTheme}
+      />
 
-      {/* 🔐 AUTH BUTTONS */}
-      <View style={{ marginBottom: 10 }}>
-        <Button title="Logout" onPress={() => router.replace('/login')} />
-      </View>
+      <Button
+        title="Manage Categories"
+        onPress={() => router.push('/categories')}
+      />
 
-      <View style={{ marginBottom: 15 }}>
-        <Button
-          title="Delete Account"
-          onPress={async () => {
-            await db.delete(users);
-            router.replace('/login');
-          }}
-        />
-      </View>
+      <Button title="Logout" onPress={() => router.replace('/login')} />
 
-      {/* 🔍 SEARCH */}
-      <Text>Search</Text>
+      <Button
+        title="Delete Account"
+        onPress={async () => {
+          await db.delete(users);
+          router.replace('/login');
+        }}
+      />
+
+      <Text style={{ color: textColor }}>Search</Text>
       <TextInput
         placeholder="Search habits..."
         value={search}
         onChangeText={handleSearch}
         style={{
           borderWidth: 1,
+          borderColor: theme === 'dark' ? '#555' : '#ccc',
+          backgroundColor: theme === 'dark' ? '#222' : '#fff',
           padding: 10,
           borderRadius: 8,
           marginBottom: 10,
+          color: textColor,
         }}
+        placeholderTextColor={theme === 'dark' ? '#aaa' : '#666'}
       />
 
-      {/* 📅 DATE FILTER */}
-      <Text>Filter by Date</Text>
+      <Text style={{ color: textColor }}>Filter by Date</Text>
       <TextInput
         placeholder="YYYY-MM-DD"
         value={selectedDate}
         onChangeText={handleDateFilter}
         style={{
           borderWidth: 1,
+          borderColor: theme === 'dark' ? '#555' : '#ccc',
+          backgroundColor: theme === 'dark' ? '#222' : '#fff',
           padding: 10,
           borderRadius: 8,
           marginBottom: 10,
+          color: textColor,
         }}
+        placeholderTextColor={theme === 'dark' ? '#aaa' : '#666'}
       />
 
-      {/* 📂 CATEGORY FILTER */}
-      <Text>Category</Text>
+      <Text style={{ color: textColor }}>Category</Text>
       <Picker
         selectedValue={selectedCategory}
         onValueChange={(value) => filterByCategory(value)}
+        dropdownIconColor={textColor} // ✅ fixes arrow visibility
+        style={{
+          color: textColor,
+          backgroundColor: theme === 'dark' ? '#222' : '#fff',
+        }}
       >
-        <Picker.Item label="All Categories" value={null} />
+        <Picker.Item
+          label="All Categories"
+          value={null}
+          color={theme === 'dark' ? '#000' : '#000'} // ✅ FORCE BLACK
+        />
+
         {categoryList.map((cat) => (
-          <Picker.Item key={cat.id} label={cat.name} value={cat.id} />
+          <Picker.Item
+            key={cat.id}
+            label={cat.name}
+            value={cat.id}
+            color="#000" // ✅ ALWAYS BLACK for dropdown list
+          />
         ))}
       </Picker>
 
-      {/* 📊 VIEW TOGGLE */}
-      <Text style={{ marginTop: 10 }}>View</Text>
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-around',
-          marginBottom: 10,
-        }}
-      >
+      <Text style={{ color: textColor }}>View</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
         <Button title="Daily" onPress={() => setView('daily')} />
         <Button title="Weekly" onPress={() => setView('weekly')} />
         <Button title="Monthly" onPress={() => setView('monthly')} />
       </View>
 
-      {/* 📊 CHART */}
       {chartData.labels.length > 0 && (
-        <>
-          {/* @ts-ignore */}
-          <BarChart
-            data={chartData}
-            width={Dimensions.get('window').width - 40}
-            height={220}
-            fromZero
-            chartConfig={{
-              backgroundGradientFrom: '#ffffff',
-              backgroundGradientTo: '#ffffff',
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(15, 118, 110, ${opacity})`,
-              labelColor: () => '#000',
-            }}
-            style={{
-              marginBottom: 30,
-              borderRadius: 10,
-            }}
-          />
-        </>
+        <BarChart
+          data={chartData}
+          width={Dimensions.get('window').width - 40}
+          height={220}
+          fromZero
+          yAxisLabel=""
+          yAxisSuffix=""
+          chartConfig={{
+            backgroundGradientFrom: bgColor,
+            backgroundGradientTo: bgColor,
+            decimalPlaces: 0,
+            color: (opacity = 1) =>
+              theme === 'dark'
+                ? `rgba(255,255,255,${opacity})`
+                : `rgba(0,0,0,${opacity})`,
+            labelColor: () => textColor,
+          }}
+        />
       )}
 
-      {/* ➕ Add Habit */}
       <Text
-        accessibilityLabel="Add habit button"
         style={{
           backgroundColor: '#0F766E',
           color: '#fff',
           padding: 12,
           borderRadius: 8,
           textAlign: 'center',
-          marginBottom: 10,
         }}
         onPress={() => router.push('/add-habit')}
       >
         + Add Habit
       </Text>
 
-      {/* 📋 LIST */}
       {filteredData.length === 0 ? (
-        <Text style={{ textAlign: 'center', marginTop: 20 }}>
-          No habits found. Add one!
-        </Text>
+        <Text style={{ color: textColor }}>No habits found.</Text>
       ) : (
         filteredData.map((habit) => (
           <HabitCard key={habit.id} habit={habit} />

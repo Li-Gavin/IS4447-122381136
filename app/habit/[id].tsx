@@ -4,8 +4,11 @@ import { useEffect, useState } from 'react';
 import { db } from '@/db/client';
 import { habits, habitLogs, targets } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function HabitDetail() {
+  const { theme } = useTheme();
+
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
@@ -13,6 +16,9 @@ export default function HabitDetail() {
   const [count, setCount] = useState('');
   const [logs, setLogs] = useState<any[]>([]);
   const [target, setTarget] = useState<any>(null);
+
+  const bgColor = theme === 'dark' ? '#111' : '#fff';
+  const textColor = theme === 'dark' ? '#fff' : '#000';
 
   useEffect(() => {
     init();
@@ -24,7 +30,6 @@ export default function HabitDetail() {
     await loadTarget();
   };
 
-  // Load habit
   const loadHabit = async () => {
     const result = await db
       .select()
@@ -34,7 +39,6 @@ export default function HabitDetail() {
     setHabit(result[0]);
   };
 
-  // Load logs
   const loadLogs = async () => {
     const result = await db
       .select()
@@ -44,7 +48,6 @@ export default function HabitDetail() {
     setLogs(result);
   };
 
-  // Load target
   const loadTarget = async () => {
     const result = await db
       .select()
@@ -54,13 +57,11 @@ export default function HabitDetail() {
     setTarget(result[0]);
   };
 
-  // Delete habit
   const deleteHabit = async () => {
     await db.delete(habits).where(eq(habits.id, Number(id)));
     router.back();
   };
 
-  // Log habit
   const logHabit = async () => {
     if (!count) return;
 
@@ -76,14 +77,13 @@ export default function HabitDetail() {
     await loadLogs();
   };
 
-  // Calculate progress
   const totalCount = logs.reduce((sum, log) => sum + log.count, 0);
 
   if (!habit) return null;
 
   return (
-    <View style={{ padding: 20 }}>
-      <Text style={{ fontSize: 22 }}>{habit.name}</Text>
+    <View style={{ padding: 20, backgroundColor: bgColor, flex: 1 }}>
+      <Text style={{ fontSize: 22, color: textColor }}>{habit.name}</Text>
 
       {/* Edit */}
       <Button
@@ -106,48 +106,52 @@ export default function HabitDetail() {
         onChangeText={setCount}
         style={{
           borderWidth: 1,
+          borderColor: theme === 'dark' ? '#555' : '#ccc',
+          backgroundColor: theme === 'dark' ? '#222' : '#fff',
+          color: textColor,
           marginTop: 20,
           padding: 10,
           borderRadius: 8,
         }}
+        placeholderTextColor={theme === 'dark' ? '#aaa' : '#666'}
       />
 
       <Button title="Log Habit" onPress={logHabit} />
 
       {/* Logs */}
-      <Text style={{ marginTop: 20, fontWeight: 'bold' }}>
+      <Text style={{ marginTop: 20, fontWeight: 'bold', color: textColor }}>
         Logs:
       </Text>
 
       {logs.map((log) => (
-        <Text key={log.id}>
+        <Text key={log.id} style={{ color: textColor }}>
           {log.date} - {log.count}
         </Text>
       ))}
 
-      {/* target progress feature */}
-      <Text style={{ marginTop: 20, fontWeight: 'bold' }}>
+      {/* Target Progress */}
+      <Text style={{ marginTop: 20, fontWeight: 'bold', color: textColor }}>
         Target Progress:
       </Text>
 
       {target ? (
         <>
-          <Text>
+          <Text style={{ color: textColor }}>
             {totalCount} / {target.value} completed
           </Text>
 
-          <Text>
+          <Text style={{ color: textColor }}>
             Remaining: {Math.max(target.value - totalCount, 0)}
           </Text>
 
-          <Text style={{ marginTop: 5 }}>
+          <Text style={{ marginTop: 5, color: textColor }}>
             {totalCount >= target.value
-              ? ' Goal reached!'
-              : ` ${target.value - totalCount} to go`}
+              ? 'Goal reached!'
+              : `${target.value - totalCount} to go`}
           </Text>
         </>
       ) : (
-        <Text>No target set</Text>
+        <Text style={{ color: textColor }}>No target set</Text>
       )}
     </View>
   );
