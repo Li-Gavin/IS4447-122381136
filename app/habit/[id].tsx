@@ -136,10 +136,14 @@ export default function HabitDetail() {
             {totalCount} / {target.value} completed
           </Text>
 
+          <Text>
+            Remaining: {Math.max(target.value - totalCount, 0)}
+          </Text>
+
           <Text style={{ marginTop: 5 }}>
             {totalCount >= target.value
               ? ' Goal reached!'
-              : ' Not yet'}
+              : ` ${target.value - totalCount} to go`}
           </Text>
         </>
       ) : (
