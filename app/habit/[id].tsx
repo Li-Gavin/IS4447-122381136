@@ -79,13 +79,44 @@ export default function HabitDetail() {
 
   const totalCount = logs.reduce((sum, log) => sum + log.count, 0);
 
+  const calculateStreak = () => {
+    if (logs.length === 0) return 0;
+
+    const sorted = [...logs].sort((a, b) =>
+      b.date.localeCompare(a.date)
+    );
+
+    let streak = 0;
+    let currentDate = new Date();
+
+    for (let i = 0; i < sorted.length; i++) {
+      const logDate = new Date(sorted[i].date);
+
+      const diff =
+        (currentDate.getTime() - logDate.getTime()) /
+        (1000 * 60 * 60 * 24);
+
+      if (Math.floor(diff) === 0) {
+        streak++;
+      } else if (Math.floor(diff) === 1) {
+        streak++;
+        currentDate = logDate;
+      } else {
+        break;
+      }
+    }
+
+    return streak;
+  };
+
+  const streak = calculateStreak();
+
   if (!habit) return null;
 
   return (
     <View style={{ padding: 20, backgroundColor: bgColor, flex: 1 }}>
       <Text style={{ fontSize: 22, color: textColor }}>{habit.name}</Text>
 
-      {/* Edit */}
       <Button
         title="Edit"
         onPress={() =>
@@ -96,10 +127,8 @@ export default function HabitDetail() {
         }
       />
 
-      {/* Delete */}
       <Button title="Delete" onPress={deleteHabit} />
 
-      {/* Log Habit */}
       <TextInput
         placeholder="Enter count"
         value={count}
@@ -118,7 +147,6 @@ export default function HabitDetail() {
 
       <Button title="Log Habit" onPress={logHabit} />
 
-      {/* Logs */}
       <Text style={{ marginTop: 20, fontWeight: 'bold', color: textColor }}>
         Logs:
       </Text>
@@ -129,7 +157,6 @@ export default function HabitDetail() {
         </Text>
       ))}
 
-      {/* Target Progress */}
       <Text style={{ marginTop: 20, fontWeight: 'bold', color: textColor }}>
         Target Progress:
       </Text>
@@ -153,6 +180,14 @@ export default function HabitDetail() {
       ) : (
         <Text style={{ color: textColor }}>No target set</Text>
       )}
+
+      <Text style={{ marginTop: 20, fontWeight: 'bold', color: textColor }}>
+        Streak:
+      </Text>
+
+      <Text style={{ color: textColor }}>
+        🔥 {streak} day{streak === 1 ? '' : 's'} in a row
+      </Text>
     </View>
   );
 }

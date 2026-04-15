@@ -192,7 +192,7 @@ export default function IndexScreen() {
       <Picker
         selectedValue={selectedCategory}
         onValueChange={(value) => filterByCategory(value)}
-        dropdownIconColor={textColor} // ✅ fixes arrow visibility
+        dropdownIconColor={textColor}
         style={{
           color: textColor,
           backgroundColor: theme === 'dark' ? '#222' : '#fff',
@@ -201,7 +201,7 @@ export default function IndexScreen() {
         <Picker.Item
           label="All Categories"
           value={null}
-          color={theme === 'dark' ? '#000' : '#000'} // ✅ FORCE BLACK
+          color={theme === 'dark' ? '#000' : '#000'}
         />
 
         {categoryList.map((cat) => (
@@ -209,7 +209,7 @@ export default function IndexScreen() {
             key={cat.id}
             label={cat.name}
             value={cat.id}
-            color="#000" // ✅ ALWAYS BLACK for dropdown list
+            color="#000"
           />
         ))}
       </Picker>
