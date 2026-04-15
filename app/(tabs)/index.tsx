@@ -10,6 +10,7 @@ import {
 
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import * as Notifications from 'expo-notifications';
 
 import { db } from '@/db/client';
 import { habits, habitLogs, users, categories } from '@/db/schema';
@@ -20,6 +21,8 @@ import { BarChart } from 'react-native-chart-kit';
 import { eq } from 'drizzle-orm';
 import { Picker } from '@react-native-picker/picker';
 import { useTheme } from '@/hooks/useTheme';
+import Constants from 'expo-constants';
+
 
 export default function IndexScreen() {
   const { theme, toggleTheme } = useTheme();
@@ -147,8 +150,30 @@ export default function IndexScreen() {
     const fileUri = FileSystem.documentDirectory + 'habits.csv';
 
     await FileSystem.writeAsStringAsync(fileUri, csv);
-
     await Sharing.shareAsync(fileUri);
+  };
+
+  const scheduleNotification = async () => {
+    if (Constants.appOwnership === 'expo') {
+      alert('Notifications only work in a development build');
+      return;
+    }
+
+    const Notifications = await import('expo-notifications');
+
+    await Notifications.requestPermissionsAsync();
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Habit Reminder',
+        body: 'Don’t forget to log your habits today!',
+      },
+      trigger: {
+        hour: 20,
+        minute: 0,
+        repeats: true,
+      } as any,
+    });
   };
 
   return (
@@ -181,6 +206,8 @@ export default function IndexScreen() {
       />
 
       <Button title="Export CSV" onPress={exportToCSV} />
+
+      <Button title="Set Daily Reminder" onPress={scheduleNotification} />
 
       <Text style={{ color: textColor }}>Search</Text>
       <TextInput
@@ -226,19 +253,9 @@ export default function IndexScreen() {
           backgroundColor: theme === 'dark' ? '#222' : '#fff',
         }}
       >
-        <Picker.Item
-          label="All Categories"
-          value={null}
-          color="#000"
-        />
-
+        <Picker.Item label="All Categories" value={null} color="#000" />
         {categoryList.map((cat) => (
-          <Picker.Item
-            key={cat.id}
-            label={cat.name}
-            value={cat.id}
-            color="#000"
-          />
+          <Picker.Item key={cat.id} label={cat.name} value={cat.id} color="#000" />
         ))}
       </Picker>
 
