@@ -4,16 +4,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export function useTheme() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
+  const loadTheme = async () => {
+    const saved = await AsyncStorage.getItem('theme');
+    if (saved) setTheme(saved as 'light' | 'dark');
+  };
+
   useEffect(() => {
     loadTheme();
   }, []);
-
-  const loadTheme = async () => {
-    try {
-      const saved = await AsyncStorage.getItem('theme');
-      if (saved) setTheme(saved as 'light' | 'dark');
-    } catch {}
-  };
 
   const toggleTheme = async () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
@@ -21,5 +19,5 @@ export function useTheme() {
     await AsyncStorage.setItem('theme', newTheme);
   };
 
-  return { theme, toggleTheme };
+  return { theme, toggleTheme, loadTheme };
 }

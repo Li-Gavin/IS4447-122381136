@@ -4,8 +4,8 @@ import {
   View,
   Dimensions,
   TextInput,
-  Button,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 
 import * as FileSystem from 'expo-file-system/legacy';
@@ -13,27 +13,26 @@ import * as Sharing from 'expo-sharing';
 import * as Notifications from 'expo-notifications';
 
 import { db } from '@/db/client';
-import { habits, habitLogs, users, categories } from '@/db/schema';
+import { habits, habitLogs, categories } from '@/db/schema';
 import { seedIfEmpty } from '@/db/seed';
 import HabitCard from '@/components/HabitCard';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { BarChart } from 'react-native-chart-kit';
-import { eq } from 'drizzle-orm';
 import { Picker } from '@react-native-picker/picker';
 import { useTheme } from '@/hooks/useTheme';
 import Constants from 'expo-constants';
 
 export default function IndexScreen() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, loadTheme } = useTheme();
 
-  const bgColor = theme === 'dark' ? '#111' : '#fff';
+  const bgColor = theme === 'dark' ? '#111' : '#F8F9FB';
+  const cardColor = theme === 'dark' ? '#1E1E1E' : '#fff';
   const textColor = theme === 'dark' ? '#fff' : '#000';
 
   const [data, setData] = useState<any[]>([]);
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
-
   const [categoryList, setCategoryList] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
@@ -52,6 +51,7 @@ export default function IndexScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      loadTheme();
       init();
     }, [])
   );
@@ -75,7 +75,7 @@ export default function IndexScreen() {
       const data = await res.json();
 
       setAdvice(data.slip.advice);
-    } catch (err) {
+    } catch {
       setAdviceError('Failed to load tip');
     } finally {
       setLoadingAdvice(false);
@@ -107,8 +107,7 @@ export default function IndexScreen() {
 
       const filteredLogs = logs.filter((l) => {
         if (view === 'daily') return l.date === today;
-        if (view === 'weekly') return true;
-        if (view === 'monthly') return true;
+        return true;
       });
 
       const total = filteredLogs.reduce((sum, l) => sum + l.count, 0);
@@ -131,21 +130,17 @@ export default function IndexScreen() {
       return;
     }
 
-    const filtered = data.filter(
-      (habit) => habit.categoryId === categoryId
-    );
-
-    setFilteredData(filtered);
+    setFilteredData(data.filter(h => h.categoryId === categoryId));
   };
 
   const handleSearch = (text: string) => {
     setSearch(text);
 
-    const filtered = data.filter((habit) =>
-      habit.name.toLowerCase().includes(text.toLowerCase())
+    setFilteredData(
+      data.filter(h =>
+        h.name.toLowerCase().includes(text.toLowerCase())
+      )
     );
-
-    setFilteredData(filtered);
   };
 
   const handleDateFilter = (date: string) => {
@@ -160,9 +155,7 @@ export default function IndexScreen() {
     let csv = 'Habit,Date,Count\n';
 
     for (const habit of habitList) {
-      const habitLogsFiltered = logs.filter(
-        (l) => l.habitId === habit.id
-      );
+      const habitLogsFiltered = logs.filter(l => l.habitId === habit.id);
 
       for (const log of habitLogsFiltered) {
         csv += `${habit.name},${log.date},${log.count}\n`;
@@ -198,16 +191,38 @@ export default function IndexScreen() {
     });
   };
 
+  // 🔹 Reusable button
+  const ActionButton = ({ title, onPress }: any) => (
+    <TouchableOpacity
+      onPress={onPress}
+      style={{
+        backgroundColor: '#2563EB',
+        padding: 12,
+        borderRadius: 10,
+        marginBottom: 10,
+      }}
+    >
+      <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>
+        {title}
+      </Text>
+    </TouchableOpacity>
+  );
+
   return (
     <ScrollView
-      contentContainerStyle={{ padding: 20, backgroundColor: bgColor }}
+      contentContainerStyle={{
+        padding: 20,
+        backgroundColor: bgColor,
+      }}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={{ fontSize: 22, marginBottom: 10, color: textColor }}>
+      {/* Title */}
+      <Text style={{ fontSize: 26, fontWeight: 'bold', color: textColor }}>
         Habits
       </Text>
 
-      <View style={{ marginBottom: 15 }}>
+      {/* Advice */}
+      <View style={{ marginVertical: 15 }}>
         {loadingAdvice ? (
           <Text style={{ color: textColor }}>Loading tip...</Text>
         ) : adviceError ? (
@@ -217,103 +232,113 @@ export default function IndexScreen() {
             <Text style={{ fontStyle: 'italic', color: textColor }}>
               💡 {advice}
             </Text>
-
             <View style={{ marginTop: 8 }}>
-              <Button title="Refresh Tip" onPress={loadAdvice} />
+              <ActionButton title="Refresh Tip" onPress={loadAdvice} />
             </View>
           </>
         )}
       </View>
 
-      <Button
-        title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
-        onPress={toggleTheme}
-      />
+      {/* Actions */}
+      <ActionButton title="Manage Categories" onPress={() => router.push('/categories')} />
+      <ActionButton title="Export CSV" onPress={exportToCSV} />
+      <ActionButton title="Set Daily Reminder" onPress={scheduleNotification} />
 
-      <Button
-        title="Manage Categories"
-        onPress={() => router.push('/categories')}
-      />
-
-      <Button title="Logout" onPress={() => router.replace('/login')} />
-
-      <Button
-        title="Delete Account"
-        onPress={async () => {
-          await db.delete(users);
-          router.replace('/login');
-        }}
-      />
-
-      <Button title="Export CSV" onPress={exportToCSV} />
-
-      <Button title="Set Daily Reminder" onPress={scheduleNotification} />
-
-      <Text style={{ color: textColor }}>Search</Text>
+      {/* Search */}
+      <Text style={{ color: textColor, marginTop: 10 }}>Search</Text>
       <TextInput
         placeholder="Search habits..."
         value={search}
         onChangeText={handleSearch}
         style={{
-          borderWidth: 1,
-          borderColor: theme === 'dark' ? '#555' : '#ccc',
-          backgroundColor: theme === 'dark' ? '#222' : '#fff',
-          padding: 10,
-          borderRadius: 8,
+          backgroundColor: cardColor,
+          padding: 12,
+          borderRadius: 10,
           marginBottom: 10,
           color: textColor,
         }}
         placeholderTextColor={theme === 'dark' ? '#aaa' : '#666'}
       />
 
+      {/* Date */}
       <Text style={{ color: textColor }}>Filter by Date</Text>
       <TextInput
         placeholder="YYYY-MM-DD"
         value={selectedDate}
         onChangeText={handleDateFilter}
         style={{
-          borderWidth: 1,
-          borderColor: theme === 'dark' ? '#555' : '#ccc',
-          backgroundColor: theme === 'dark' ? '#222' : '#fff',
-          padding: 10,
-          borderRadius: 8,
+          backgroundColor: cardColor,
+          padding: 12,
+          borderRadius: 10,
           marginBottom: 10,
           color: textColor,
         }}
         placeholderTextColor={theme === 'dark' ? '#aaa' : '#666'}
       />
 
+      {/* Category */}
       <Text style={{ color: textColor }}>Category</Text>
-      <Picker
-        selectedValue={selectedCategory}
-        onValueChange={(value) => filterByCategory(value)}
-        dropdownIconColor={textColor}
-        style={{
-          color: textColor,
-          backgroundColor: theme === 'dark' ? '#222' : '#fff',
-        }}
-      >
-        <Picker.Item label="All Categories" value={null} color="#000" />
-        {categoryList.map((cat) => (
-          <Picker.Item key={cat.id} label={cat.name} value={cat.id} color="#000" />
-        ))}
-      </Picker>
-
-      <Text style={{ color: textColor }}>View</Text>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
-        <Button title="Daily" onPress={() => setView('daily')} />
-        <Button title="Weekly" onPress={() => setView('weekly')} />
-        <Button title="Monthly" onPress={() => setView('monthly')} />
+      <View style={{ backgroundColor: cardColor, borderRadius: 10 }}>
+        <Picker
+          selectedValue={selectedCategory}
+          onValueChange={filterByCategory}
+          style={{ color: textColor }}
+        >
+          <Picker.Item
+            label="All Categories"
+            value={null}
+            color={textColor}
+          />
+          {categoryList.map(cat => (
+            <Picker.Item
+              key={cat.id}
+              label={cat.name}
+              value={cat.id}
+              color={textColor}
+            />
+          ))}
+        </Picker>
       </View>
 
+      {/* View buttons */}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+          marginTop: 15,
+        }}
+      >
+        {['daily', 'weekly', 'monthly'].map(v => (
+          <TouchableOpacity
+            key={v}
+            onPress={() => setView(v as any)}
+            style={{
+              backgroundColor: view === v ? '#2563EB' : cardColor,
+              padding: 10,
+              borderRadius: 8,
+            }}
+          >
+            <Text
+              style={{
+                color: view === v ? '#fff' : textColor,
+                fontWeight: '600',
+              }}
+            >
+              {v.toUpperCase()}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Chart (UNCHANGED LOGIC) */}
       {chartData.labels.length > 0 && (
         <BarChart
           data={chartData}
           width={Dimensions.get('window').width - 40}
           height={220}
-          fromZero
           yAxisLabel=""
           yAxisSuffix=""
+          fromZero
           chartConfig={{
             backgroundGradientFrom: bgColor,
             backgroundGradientTo: bgColor,
@@ -324,29 +349,32 @@ export default function IndexScreen() {
                 : `rgba(0,0,0,${opacity})`,
             labelColor: () => textColor,
           }}
+          style={{
+            borderRadius: 12,
+            marginTop: 15,
+          }}
         />
       )}
 
-      <Text
+      {/* Add Habit */}
+      <TouchableOpacity
+        onPress={() => router.push('/add-habit')}
         style={{
           backgroundColor: '#0F766E',
-          color: '#fff',
-          padding: 12,
-          borderRadius: 8,
-          textAlign: 'center',
+          padding: 14,
+          borderRadius: 12,
+          marginTop: 15,
         }}
-        onPress={() => router.push('/add-habit')}
       >
-        + Add Habit
-      </Text>
+        <Text style={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>
+          + Add Habit
+        </Text>
+      </TouchableOpacity>
 
-      {filteredData.length === 0 ? (
-        <Text style={{ color: textColor }}>No habits found.</Text>
-      ) : (
-        filteredData.map((habit) => (
-          <HabitCard key={habit.id} habit={habit} />
-        ))
-      )}
+      {/* List */}
+      {filteredData.map(habit => (
+        <HabitCard key={habit.id} habit={habit} />
+      ))}
     </ScrollView>
   );
 }
