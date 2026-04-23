@@ -1,3 +1,4 @@
+// This checks that the Text component renders the expected content.
 import React from 'react';
 import { Text } from 'react-native';
 import { create, act } from 'react-test-renderer';

@@ -15,6 +15,7 @@ export default function EditHabit() {
     loadHabit();
   }, []);
 
+  // Loads the habit details from the database based on the habit ID passed in the URL parameters. It uses the Drizzle ORM to query the habits table and sets the name state variable with the retrieved habit name.
   const loadHabit = async () => {
     const result = await db
       .select()
@@ -23,7 +24,7 @@ export default function EditHabit() {
 
     setName(result[0].name);
   };
-
+// Deletes the habit from the database and navigates back to the previous screen.
   const saveChanges = async () => {
     await db
       .update(habits)
